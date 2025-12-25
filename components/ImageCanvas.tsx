@@ -23,7 +23,7 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
       if (!containerRef.current || !canvasRef.current || !maskCanvasRef.current) return;
       
       const containerWidth = containerRef.current.clientWidth;
-      const containerHeight = window.innerHeight * 0.7; // Fixed responsive height
+      const containerHeight = containerRef.current.clientHeight;
       
       const imgWidth = image.width;
       const imgHeight = image.height;
@@ -64,10 +64,11 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
       const val = mask[i];
       const idx = i * 4;
       if (val > 0) {
-        imageData.data[idx] = 63;   // R
-        imageData.data[idx + 1] = 131; // G
-        imageData.data[idx + 2] = 248; // B
-        imageData.data[idx + 3] = 160; // Alpha
+        // Vibrant neon blue for dark theme
+        imageData.data[idx] = 99;   // R
+        imageData.data[idx + 1] = 102; // G
+        imageData.data[idx + 2] = 241; // B
+        imageData.data[idx + 3] = 180; // Alpha
       } else {
         imageData.data[idx + 3] = 0;
       }
@@ -90,50 +91,57 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
   return (
     <div 
       ref={containerRef} 
-      className="relative w-full flex justify-center items-center overflow-hidden bg-slate-900 rounded-xl shadow-inner border border-slate-800"
-      style={{ minHeight: '400px', height: '70vh' }}
+      className="relative w-full flex-1 flex justify-center items-center overflow-hidden bg-slate-950 rounded-xl shadow-inner border border-slate-800"
     >
       <div 
-        className="relative cursor-crosshair transition-transform duration-200"
+        className="relative cursor-crosshair transition-all duration-300 ease-out"
         style={{ width: (image?.width || 0) * scale, height: (image?.height || 0) * scale }}
         onMouseDown={handleMouseDown}
         onContextMenu={(e) => e.preventDefault()}
       >
         <canvas 
           ref={canvasRef} 
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full pointer-events-none rounded-sm"
         />
         <canvas 
           ref={maskCanvasRef} 
-          className="absolute inset-0 w-full h-full pointer-events-none opacity-80"
+          className="absolute inset-0 w-full h-full pointer-events-none mix-blend-screen"
         />
         
         {/* Render Points */}
         {points.map((p, i) => (
           <div 
             key={i}
-            className={`absolute w-3 h-3 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 shadow-lg z-10 ${
-              p.label === 1 ? 'bg-blue-500' : 'bg-red-500'
+            className={`absolute w-3.5 h-3.5 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 animate-in fade-in zoom-in duration-300 ${
+              p.label === 1 ? 'bg-indigo-500' : 'bg-rose-500'
             }`}
             style={{ left: p.x * scale, top: p.y * scale }}
           />
         ))}
 
         {isLoading && (
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] flex items-center justify-center z-20">
-             <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
-                <span className="text-white font-medium text-sm drop-shadow-md">Processing segment...</span>
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center z-20">
+             <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500/20 border-t-indigo-500"></div>
+                  <div className="absolute inset-0 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.3)]"></div>
+                </div>
+                <span className="text-indigo-100 font-semibold text-sm tracking-wide">Refining mask...</span>
              </div>
           </div>
         )}
 
         {!image && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-4">
-            <svg className="w-16 h-16 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-sm font-medium">Upload an image to start segmenting</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-700 gap-6">
+            <div className="bg-slate-900/50 p-8 rounded-full border border-slate-800/50 shadow-2xl">
+              <svg className="w-20 h-20 opacity-40 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-lg font-bold text-slate-500">Workspace Empty</p>
+              <p className="text-sm text-slate-600">Drop or upload an image to begin segmentation</p>
+            </div>
           </div>
         )}
       </div>

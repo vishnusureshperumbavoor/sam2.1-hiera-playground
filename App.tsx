@@ -84,35 +84,35 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-950">
       {/* Navbar */}
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <nav className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-lg shadow-sm">
+            <div className="bg-indigo-600 p-2 rounded-lg shadow-lg">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400">
               SAM 2.1 Interactive
             </h1>
           </div>
           
           <div className="flex items-center gap-4">
             {modelStatus.loading ? (
-              <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold animate-pulse border border-indigo-100">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                Loading SAM 2.1 {modelStatus.progress}%
+              <div className="flex items-center gap-2 px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-xs font-semibold animate-pulse border border-indigo-500/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                Loading Engine {modelStatus.progress}%
               </div>
             ) : modelStatus.error ? (
-               <div className="text-xs font-semibold text-red-600 px-3 py-1 bg-red-50 rounded-full border border-red-100">
+               <div className="text-xs font-semibold text-red-400 px-3 py-1 bg-red-500/10 rounded-full border border-red-500/20">
                   Model Error
                </div>
             ) : (
-              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-100">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                SAM 2.1 (Ultralytics) Active
+              <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-semibold border border-emerald-500/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                Engine Active
               </div>
             )}
           </div>
@@ -121,17 +121,17 @@ const App: React.FC = () => {
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-1 space-y-6">
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Input & Controls</h2>
+          <section className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800">
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Input & Controls</h2>
             
             <div className="space-y-4">
               <label className="block">
                 <span className="sr-only">Choose image</span>
-                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-all cursor-pointer group">
-                  <svg className="w-8 h-8 text-slate-400 group-hover:text-indigo-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-700 rounded-xl hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group">
+                  <svg className="w-8 h-8 text-slate-600 group-hover:text-indigo-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  <span className="text-xs font-medium text-slate-500 group-hover:text-indigo-600">Click to upload image</span>
+                  <span className="text-xs font-medium text-slate-500 group-hover:text-indigo-300">Click to upload image</span>
                   <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
                 </div>
               </label>
@@ -140,7 +140,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={resetAll}
                   disabled={!points.length}
-                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition-colors disabled:opacity-30 flex items-center justify-center gap-2 border border-slate-700"
                 >
                   Clear Selection
                 </button>
@@ -148,40 +148,49 @@ const App: React.FC = () => {
             </div>
           </section>
 
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Instructions</h2>
-            <ul className="space-y-3 text-sm text-slate-600">
-              <li className="flex gap-3">
-                <span className="bg-indigo-100 text-indigo-600 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0">1</span>
-                <span>Upload an image.</span>
+          <section className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800">
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Instructions</h2>
+            <ul className="space-y-3 text-sm text-slate-400">
+              <li className="flex gap-3 items-start">
+                <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">1</span>
+                <span>Upload a source image to the workspace.</span>
               </li>
-              <li className="flex gap-3">
-                <span className="bg-indigo-100 text-indigo-600 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0">2</span>
-                <span><b>Left click</b> to select object.</span>
+              <li className="flex gap-3 items-start">
+                <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">2</span>
+                <span><b className="text-slate-200">Left click</b> to select an object or part.</span>
               </li>
-              <li className="flex gap-3">
-                <span className="bg-indigo-100 text-indigo-600 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0">3</span>
-                <span><b>Right click</b> to exclude area.</span>
+              <li className="flex gap-3 items-start">
+                <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">3</span>
+                <span><b className="text-slate-200">Right click</b> to exclude specific areas.</span>
               </li>
             </ul>
           </section>
 
           {segmentation && (
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl text-white shadow-lg shadow-indigo-200">
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 rounded-2xl text-white shadow-2xl shadow-indigo-900/20">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-widest opacity-80">Confidence</span>
                 <span className="text-lg font-bold">{(segmentation.score * 100).toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden mt-3">
+                <div 
+                  className="bg-white h-full transition-all duration-500" 
+                  style={{ width: `${segmentation.score * 100}%` }}
+                />
               </div>
             </div>
           )}
         </div>
 
         <div className="lg:col-span-3 space-y-4">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-slate-900 p-4 rounded-2xl shadow-xl border border-slate-800 h-full flex flex-col min-h-[600px]">
+            <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <h2 className="text-lg font-bold text-slate-800">Workspace (SAM 2.1 Hiera)</h2>
+                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                <h2 className="text-lg font-bold text-slate-200">Interactive Workspace</h2>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                SAM 2.1 Hiera-Tiny
               </div>
             </div>
             
@@ -197,28 +206,45 @@ const App: React.FC = () => {
       </main>
 
       {modelStatus.loading && modelStatus.progress < 100 && (
-        <div className="fixed inset-0 z-[100] bg-white/95 backdrop-blur-md flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-6">
           <div className="max-w-md w-full text-center space-y-8">
             <div className="space-y-3">
-              <h2 className="text-2xl font-bold text-slate-900">Downloading SAM 2.1 Engine</h2>
-              <p className="text-slate-500 leading-relaxed">
-                Fetching latest Ultralytics-compatible weights for in-browser inference.
+              <div className="bg-indigo-600 w-16 h-16 rounded-2xl mx-auto flex items-center justify-center shadow-2xl shadow-indigo-600/30 mb-6">
+                <svg className="w-8 h-8 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-slate-100">Initializing Engine</h2>
+              <p className="text-slate-400 leading-relaxed">
+                Downloading latest SAM 2.1 weights for local execution...
               </p>
             </div>
-            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-              <div 
-                className="bg-indigo-600 h-full transition-all duration-300" 
-                style={{ width: `${modelStatus.progress}%` }}
-              />
+            <div className="space-y-2">
+              <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-indigo-500 h-full transition-all duration-300 shadow-[0_0_12px_rgba(99,102,241,0.5)]" 
+                  style={{ width: `${modelStatus.progress}%` }}
+                />
+              </div>
+              <div className="text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                {modelStatus.progress}% Complete
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {modelStatus.error && (
-        <div className="fixed bottom-6 right-6 z-[101] max-w-sm bg-red-600 text-white p-4 rounded-2xl shadow-2xl">
-          <p className="font-bold">Error</p>
-          <p className="text-sm opacity-90">{modelStatus.error}</p>
+        <div className="fixed bottom-6 right-6 z-[101] max-w-sm bg-red-600 text-white p-5 rounded-2xl shadow-2xl border border-red-500/50">
+          <div className="flex gap-3">
+             <svg className="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+             </svg>
+             <div>
+                <p className="font-bold mb-1 leading-none">Initialization Error</p>
+                <p className="text-sm opacity-90 leading-snug">{modelStatus.error}</p>
+             </div>
+          </div>
         </div>
       )}
     </div>
