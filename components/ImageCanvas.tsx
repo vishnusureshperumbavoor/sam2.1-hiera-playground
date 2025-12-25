@@ -1,20 +1,28 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Point, SegmentationResult } from '../types';
+import { Point, Box, SegmentationResult } from '../types';
+
+type SegmentMode = 'point' | 'box';
 
 interface ImageCanvasProps {
   image: HTMLImageElement | null;
   points: Point[];
+  box: Box | null;
   onAddPoint: (point: Point) => void;
+  onBoxComplete: (box: Box) => void;
   segmentation: SegmentationResult | null;
   isLoading: boolean;
+  isEmbeddingReady: boolean;
+  mode: SegmentMode;
 }
 
-const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, segmentation, isLoading }) => {
+const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, box, onAddPoint, onBoxComplete, segmentation, isLoading, isEmbeddingReady, mode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const [scale, setScale] = useState(1);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [tempBox, setTempBox] = useState<Box | null>(null);
 
   useEffect(() => {
     if (!image || !canvasRef.current) return;
@@ -130,15 +138,56 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
   }, [segmentation]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!image || !canvasRef.current || isLoading) return;
+    if (!image || !canvasRef.current || isLoading || !isEmbeddingReady) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
 
-    // Left click = Positive (1), Right click = Negative (0)
-    const label = e.button === 0 ? 1 : 0;
-    onAddPoint({ x, y, label });
+    if (mode === 'point') {
+      // Left click = Positive (1), Right click = Negative (0)
+      const label = e.button === 0 ? 1 : 0;
+      onAddPoint({ x, y, label });
+    } else if (mode === 'box' && e.button === 0) {
+      // Start drawing box
+      setIsDrawing(true);
+      setTempBox({ x1: x, y1: y, x2: x, y2: y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!image || !canvasRef.current || !isDrawing || mode !== 'box') return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+
+    if (tempBox) {
+      setTempBox({ ...tempBox, x2: x, y2: y });
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!image || !isDrawing || mode !== 'box' || !tempBox) return;
+
+    setIsDrawing(false);
+    
+    // Ensure box has minimum size
+    const width = Math.abs(tempBox.x2 - tempBox.x1);
+    const height = Math.abs(tempBox.y2 - tempBox.y1);
+    
+    if (width > 5 && height > 5) {
+      // Normalize box coordinates (ensure x1 < x2, y1 < y2)
+      const normalizedBox = {
+        x1: Math.min(tempBox.x1, tempBox.x2),
+        y1: Math.min(tempBox.y1, tempBox.y2),
+        x2: Math.max(tempBox.x1, tempBox.x2),
+        y2: Math.max(tempBox.y1, tempBox.y2)
+      };
+      onBoxComplete(normalizedBox);
+    }
+    
+    setTempBox(null);
   };
 
   return (
@@ -147,9 +196,14 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
       className="relative w-full flex-1 flex justify-center items-center overflow-hidden bg-slate-950 rounded-xl shadow-inner border border-slate-800"
     >
       <div 
-        className="relative cursor-crosshair transition-all duration-300 ease-out"
+        className={`relative transition-all duration-300 ease-out ${
+          !isEmbeddingReady ? 'cursor-wait' : 'cursor-crosshair'
+        }`}
         style={{ width: (image?.width || 0) * scale, height: (image?.height || 0) * scale }}
         onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         onContextMenu={(e) => e.preventDefault()}
       >
         <canvas 
@@ -162,7 +216,7 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
         />
         
         {/* Render Points */}
-        {points.map((p, i) => (
+        {mode === 'point' && points.map((p, i) => (
           <div 
             key={i}
             className={`absolute w-3.5 h-3.5 rounded-full border-2 border-white -translate-x-1/2 -translate-y-1/2 shadow-[0_0_12px_rgba(255,255,255,0.4)] z-10 animate-in fade-in zoom-in duration-300 ${
@@ -171,6 +225,34 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
             style={{ left: p.x * scale, top: p.y * scale }}
           />
         ))}
+
+        {/* Render Bounding Box */}
+        {mode === 'box' && (tempBox || box) && (() => {
+          const displayBox = tempBox || box!;
+          const x = Math.min(displayBox.x1, displayBox.x2) * scale;
+          const y = Math.min(displayBox.y1, displayBox.y2) * scale;
+          const width = Math.abs(displayBox.x2 - displayBox.x1) * scale;
+          const height = Math.abs(displayBox.y2 - displayBox.y1) * scale;
+          
+          return (
+            <div
+              className="absolute border-3 border-indigo-500 bg-indigo-500/10 z-10 pointer-events-none"
+              style={{
+                left: x,
+                top: y,
+                width: width,
+                height: height,
+                boxShadow: '0 0 20px rgba(99, 102, 241, 0.5), inset 0 0 20px rgba(99, 102, 241, 0.1)'
+              }}
+            >
+              {/* Corner handles */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-white rounded-full shadow-lg"></div>
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-white rounded-full shadow-lg"></div>
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-white rounded-full shadow-lg"></div>
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-white rounded-full shadow-lg"></div>
+            </div>
+          );
+        })()}
 
         {isLoading && (
           <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[2px] flex items-center justify-center z-20">

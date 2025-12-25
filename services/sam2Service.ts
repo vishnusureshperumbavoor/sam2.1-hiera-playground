@@ -1,6 +1,6 @@
 
 import * as ort from 'onnxruntime-web';
-import { Point, SegmentationResult } from '../types';
+import { Point, Box, SegmentationResult } from '../types';
 
 // Set WASM paths for ONNX Runtime
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
@@ -198,6 +198,56 @@ class SAM2Service {
       image_embed: this.imageEmbeddings,
       point_coords: new ort.Tensor('float32', coords, [1, numPoints, 2]),
       point_labels: new ort.Tensor('float32', labels, [1, numPoints]),
+      mask_input: new ort.Tensor('float32', new Float32Array(256 * 256), [1, 1, 256, 256]),
+      has_mask_input: new ort.Tensor('float32', new Float32Array([0]), [1]),
+      high_res_feats_0: this.highResFeats0!,
+      high_res_feats_1: this.highResFeats1!
+    };
+
+    const results = await this.decoderSession.run(inputs);
+    
+    const masks = results.masks.data as Float32Array;
+    const iouPredictions = results.iou_predictions || results.iou_scores;
+    const scores = iouPredictions.data as Float32Array;
+    
+    let bestIdx = 0;
+    for (let i = 1; i < scores.length; i++) {
+      if (scores[i] > scores[bestIdx]) bestIdx = i;
+    }
+
+    const mask256 = masks.slice(bestIdx * 256 * 256, (bestIdx + 1) * 256 * 256);
+    const finalMask = this.upscaleMask(mask256, 256, 256, this.originalImageSize.width, this.originalImageSize.height);
+
+    return {
+      mask: finalMask,
+      score: scores[bestIdx],
+      width: this.originalImageSize.width,
+      height: this.originalImageSize.height
+    };
+  }
+
+  async segmentWithBox(box: Box): Promise<SegmentationResult> {
+    if (!this.decoderSession || !this.imageEmbeddings || !this.originalImageSize) {
+      throw new Error('Inference pipeline not ready');
+    }
+
+    // Convert box to corner points (SAM2 expects box as 2 corner points with labels 2 and 3)
+    const coords = new Float32Array(4);
+    const labels = new Float32Array(2);
+
+    // Normalize box coordinates to 1024x1024 space
+    coords[0] = (box.x1 / this.originalImageSize.width) * 1024;  // top-left x
+    coords[1] = (box.y1 / this.originalImageSize.height) * 1024; // top-left y
+    coords[2] = (box.x2 / this.originalImageSize.width) * 1024;  // bottom-right x
+    coords[3] = (box.y2 / this.originalImageSize.height) * 1024; // bottom-right y
+
+    labels[0] = 2; // top-left corner label
+    labels[1] = 3; // bottom-right corner label
+
+    const inputs = {
+      image_embed: this.imageEmbeddings,
+      point_coords: new ort.Tensor('float32', coords, [1, 2, 2]),
+      point_labels: new ort.Tensor('float32', labels, [1, 2]),
       mask_input: new ort.Tensor('float32', new Float32Array(256 * 256), [1, 1, 256, 256]),
       has_mask_input: new ort.Tensor('float32', new Float32Array([0]), [1]),
       high_res_feats_0: this.highResFeats0!,

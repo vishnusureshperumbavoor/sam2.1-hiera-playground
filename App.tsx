@@ -2,13 +2,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { sam2Service } from './services/sam2Service';
 import ImageCanvas from './components/ImageCanvas';
-import { Point, SegmentationResult, ModelStatus } from './types';
+import { Point, Box, SegmentationResult, ModelStatus } from './types';
+
+type SegmentMode = 'point' | 'box';
 
 const App: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [points, setPoints] = useState<Point[]>([]);
+  const [box, setBox] = useState<Box | null>(null);
   const [segmentation, setSegmentation] = useState<SegmentationResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isEmbeddingReady, setIsEmbeddingReady] = useState(false);
+  const [mode, setMode] = useState<SegmentMode>('point');
   const [modelStatus, setModelStatus] = useState<ModelStatus>({
     encoderLoaded: false,
     decoderLoaded: false,
@@ -47,14 +52,18 @@ const App: React.FC = () => {
       img.onload = async () => {
         setImage(img);
         setPoints([]);
+        setBox(null);
         setSegmentation(null);
+        setIsEmbeddingReady(false);
         
         setTimeout(async () => {
           setIsProcessing(true);
           try {
             await sam2Service.setAndEmbedImage(img);
+            setIsEmbeddingReady(true);
           } catch (err) {
-            console.error(err);
+            console.error('Failed to create embeddings:', err);
+            setIsEmbeddingReady(false);
           } finally {
             setIsProcessing(false);
           }
@@ -80,9 +89,25 @@ const App: React.FC = () => {
     }
   }, [points]);
 
+  const handleBoxComplete = useCallback(async (newBox: Box) => {
+    setBox(newBox);
+    
+    setIsProcessing(true);
+    try {
+      const result = await sam2Service.segmentWithBox(newBox);
+      setSegmentation(result);
+    } catch (err) {
+      console.error('Box segmentation failed:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
   const resetAll = () => {
     setPoints([]);
+    setBox(null);
     setSegmentation(null);
+    // Keep isEmbeddingReady true - we can still use the same image
   };
 
   return (
@@ -138,10 +163,40 @@ const App: React.FC = () => {
                 </div>
               </label>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
+                {/* Mode Toggle */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setMode('point'); resetAll(); }}
+                    className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 ${
+                      mode === 'point'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                    </svg>
+                    Points
+                  </button>
+                  <button
+                    onClick={() => { setMode('box'); resetAll(); }}
+                    className={`flex-1 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-2 ${
+                      mode === 'box'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                    </svg>
+                    Box
+                  </button>
+                </div>
+                
                 <button 
                   onClick={resetAll}
-                  disabled={!points.length}
+                  disabled={!points.length && !box}
                   className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition-colors disabled:opacity-30 flex items-center justify-center gap-2 border border-slate-700"
                 >
                   Clear Selection
@@ -152,20 +207,37 @@ const App: React.FC = () => {
 
           <section className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800">
             <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Instructions</h2>
-            <ul className="space-y-3 text-sm text-slate-400">
-              <li className="flex gap-3 items-start">
-                <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">1</span>
-                <span>Upload a source image to the workspace.</span>
-              </li>
-              <li className="flex gap-3 items-start">
-                <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">2</span>
-                <span><b className="text-slate-200">Left click</b> to select an object or part.</span>
-              </li>
-              <li className="flex gap-3 items-start">
-                <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">3</span>
-                <span><b className="text-slate-200">Right click</b> to exclude specific areas.</span>
-              </li>
-            </ul>
+            {mode === 'point' ? (
+              <ul className="space-y-3 text-sm text-slate-400">
+                <li className="flex gap-3 items-start">
+                  <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">1</span>
+                  <span>Upload a source image to the workspace.</span>
+                </li>
+                <li className="flex gap-3 items-start">
+                  <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">2</span>
+                  <span><b className="text-slate-200">Left click</b> to select an object or part.</span>
+                </li>
+                <li className="flex gap-3 items-start">
+                  <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">3</span>
+                  <span><b className="text-slate-200">Right click</b> to exclude specific areas.</span>
+                </li>
+              </ul>
+            ) : (
+              <ul className="space-y-3 text-sm text-slate-400">
+                <li className="flex gap-3 items-start">
+                  <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">1</span>
+                  <span>Upload a source image to the workspace.</span>
+                </li>
+                <li className="flex gap-3 items-start">
+                  <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">2</span>
+                  <span><b className="text-slate-200">Click or drag</b> to draw a bounding box around an object.</span>
+                </li>
+                <li className="flex gap-3 items-start">
+                  <span className="bg-indigo-500/20 text-indigo-400 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold shrink-0 mt-0.5 border border-indigo-500/20">3</span>
+                  <span>Release to segment everything inside the box.</span>
+                </li>
+              </ul>
+            )}
           </section>
 
           {segmentation && (
@@ -199,9 +271,13 @@ const App: React.FC = () => {
             <ImageCanvas 
               image={image}
               points={points}
+              box={box}
               onAddPoint={addPoint}
+              onBoxComplete={handleBoxComplete}
               segmentation={segmentation}
               isLoading={isProcessing}
+              isEmbeddingReady={isEmbeddingReady}
+              mode={mode}
             />
           </div>
         </div>

@@ -5,6 +5,13 @@ export interface Point {
   label: number; // 1 for positive, 0 for negative
 }
 
+export interface Box {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface ModelStatus {
   encoderLoaded: boolean;
   decoderLoaded: boolean;
