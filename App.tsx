@@ -49,14 +49,16 @@ const App: React.FC = () => {
         setPoints([]);
         setSegmentation(null);
         
-        setIsProcessing(true);
-        try {
-          await sam2Service.setAndEmbedImage(img);
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setIsProcessing(false);
-        }
+        setTimeout(async () => {
+          setIsProcessing(true);
+          try {
+            await sam2Service.setAndEmbedImage(img);
+          } catch (err) {
+            console.error(err);
+          } finally {
+            setIsProcessing(false);
+          }
+        }, 300);
       };
       img.src = event.target?.result as string;
     };
@@ -95,7 +97,7 @@ const App: React.FC = () => {
               </svg>
             </div>
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400">
-              SAM 2.1 Interactive
+              SAM 2.1 Hiera
             </h1>
           </div>
           
@@ -187,10 +189,10 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-3">
                 <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                <h2 className="text-lg font-bold text-slate-200">Interactive Workspace</h2>
+                <h2 className="text-lg font-bold text-slate-200">SAM2.1 Hiera Workspace</h2>
               </div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                SAM 2.1 Hiera-Tiny
+                SAM 2.1 Hiera
               </div>
             </div>
             

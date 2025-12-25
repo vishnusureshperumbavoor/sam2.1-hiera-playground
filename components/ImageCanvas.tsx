@@ -59,20 +59,73 @@ const ImageCanvas: React.FC<ImageCanvasProps> = ({ image, points, onAddPoint, se
     const ctx = maskCanvasRef.current.getContext('2d');
     if (!ctx) return;
 
+    // Create image data for the mask
     const imageData = ctx.createImageData(width, height);
-    for (let i = 0; i < mask.length; i++) {
-      const val = mask[i];
-      const idx = i * 4;
-      if (val > 0) {
-        // Vibrant neon blue for dark theme
-        imageData.data[idx] = 99;   // R
-        imageData.data[idx + 1] = 102; // G
-        imageData.data[idx + 2] = 241; // B
-        imageData.data[idx + 3] = 180; // Alpha
-      } else {
-        imageData.data[idx + 3] = 0;
+    
+    // Helper to check if a pixel is on the edge
+    const isEdge = (x: number, y: number): boolean => {
+      const idx = y * width + x;
+      if (mask[idx] === 0) return false;
+      
+      // Check 8 neighboring pixels
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            const nidx = ny * width + nx;
+            if (mask[nidx] === 0) return true; // Edge detected
+          }
+        }
+      }
+      return false;
+    };
+
+    // First pass: fill mask with semi-transparent color
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = y * width + x;
+        const idx = i * 4;
+        const val = mask[i];
+        
+        if (val > 0) {
+          // Vibrant neon blue for dark theme
+          imageData.data[idx] = 99;   // R
+          imageData.data[idx + 1] = 102; // G
+          imageData.data[idx + 2] = 241; // B
+          imageData.data[idx + 3] = 180; // Alpha
+        } else {
+          imageData.data[idx + 3] = 0;
+        }
       }
     }
+
+    // Second pass: draw thicker border around edges
+    const borderThickness = 1; // Reduced for smoother appearance with improved upscaling
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (isEdge(x, y)) {
+          // Draw a thicker border by setting surrounding pixels
+          for (let dy = -borderThickness; dy <= borderThickness; dy++) {
+            for (let dx = -borderThickness; dx <= borderThickness; dx++) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                const i = ny * width + nx;
+                const idx = i * 4;
+                // Bright white/indigo border
+                imageData.data[idx] = 255;   // R
+                imageData.data[idx + 1] = 255; // G
+                imageData.data[idx + 2] = 255; // B
+                imageData.data[idx + 3] = 255; // Full opacity
+              }
+            }
+          }
+        }
+      }
+    }
+
     ctx.putImageData(imageData, 0, 0);
   }, [segmentation]);
 

@@ -22,6 +22,66 @@ class SAM2Service {
     decoder: 'https://storage.googleapis.com/lb-artifacts-testing-public/sam2/sam2_hiera_tiny.decoder.onnx'
   };
 
+  private DB_NAME = 'SAM2ModelsCache';
+  private DB_VERSION = 1;
+  private STORE_NAME = 'models';
+
+  /**
+   * Get a cached model from IndexedDB
+   */
+  private async getCachedModel(key: string): Promise<ArrayBuffer | null> {
+    return new Promise((resolve) => {
+      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+      
+      request.onupgradeneeded = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+          db.createObjectStore(this.STORE_NAME);
+        }
+      };
+      
+      request.onsuccess = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        const tx = db.transaction(this.STORE_NAME, 'readonly');
+        const store = tx.objectStore(this.STORE_NAME);
+        const getReq = store.get(key);
+        
+        getReq.onsuccess = () => resolve(getReq.result || null);
+        getReq.onerror = () => resolve(null);
+      };
+      
+      request.onerror = () => resolve(null);
+    });
+  }
+
+  /**
+   * Cache a model to IndexedDB
+   */
+  private async cacheModel(key: string, data: ArrayBuffer): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+      
+      request.onupgradeneeded = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+          db.createObjectStore(this.STORE_NAME);
+        }
+      };
+      
+      request.onsuccess = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        const tx = db.transaction(this.STORE_NAME, 'readwrite');
+        const store = tx.objectStore(this.STORE_NAME);
+        store.put(data, key);
+        
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(new Error('Failed to cache model'));
+      };
+      
+      request.onerror = () => reject(new Error('Failed to open IndexedDB'));
+    });
+  }
+
   async loadModels(onProgress?: (progress: number) => void) {
     try {
       if (this.encoderSession && this.decoderSession) {
@@ -30,32 +90,52 @@ class SAM2Service {
       }
 
       const options: ort.InferenceSession.SessionOptions = {
-        executionProviders: ['wasm'],
+        executionProviders: ['webgpu', 'wasm'],
         graphOptimizationLevel: 'all',
       };
 
       const fetchAndLoad = async (url: string, start: number, end: number) => {
-        // We use standard fetch; these GCS buckets are public and CORS-enabled
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch model from ${url} (HTTP ${response.status})`);
+        // Check cache first
+        const cached = await this.getCachedModel(url);
+        let buffer: ArrayBuffer;
+        
+        if (cached) {
+          console.log(`✓ Using cached model: ${url.split('/').pop()}`);
+          buffer = cached;
+          onProgress?.(Math.floor(start + (end - start) * 0.5));
+        } else {
+          console.log(`↓ Downloading model: ${url.split('/').pop()}`);
+          // We use standard fetch; these GCS buckets are public and CORS-enabled
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch model from ${url} (HTTP ${response.status})`);
+          }
+          
+          buffer = await response.arrayBuffer();
+          onProgress?.(Math.floor(start + (end - start) * 0.6));
+          
+          // Cache for next time
+          try {
+            await this.cacheModel(url, buffer);
+            console.log(`✓ Cached model: ${url.split('/').pop()}`);
+          } catch (err) {
+            console.warn('Failed to cache model:', err);
+          }
         }
         
-        const buffer = await response.arrayBuffer();
         onProgress?.(Math.floor(start + (end - start) * 0.8));
-        
         const session = await ort.InferenceSession.create(buffer, options);
         onProgress?.(end);
         return session;
       };
 
-      console.log('Fetching SAM2 Encoder...');
+      console.log('🔄 Loading SAM2 Encoder...');
       this.encoderSession = await fetchAndLoad(this.MODEL_URLS.encoder, 0, 60);
       
-      console.log('Fetching SAM2 Decoder...');
+      console.log('🔄 Loading SAM2 Decoder...');
       this.decoderSession = await fetchAndLoad(this.MODEL_URLS.decoder, 60, 100);
       
-      console.log('SAM2 Pipeline Ready.');
+      console.log('✅ SAM2 Pipeline Ready!');
     } catch (error: any) {
       console.error('SAM2 Init Error:', error);
       throw new Error(`Inference Error: ${error.message}. Please check your internet connection.`);
@@ -147,14 +227,22 @@ class SAM2Service {
   }
 
   private upscaleMask(data: Float32Array, sw: number, sh: number, dw: number, dh: number): Uint8Array {
+    // First, create a higher resolution intermediate canvas for better quality
+    const scaleFactor = 4; // 4x intermediate upscaling for smoother results
+    const intermediateWidth = sw * scaleFactor;
+    const intermediateHeight = sh * scaleFactor;
+    
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = sw;
     tempCanvas.height = sh;
     const tempCtx = tempCanvas.getContext('2d')!;
     const tempImageData = tempCtx.createImageData(sw, sh);
     
+    // Use the raw confidence values for anti-aliasing instead of hard binary threshold
     for (let i = 0; i < data.length; i++) {
-      const val = data[i] > 0 ? 255 : 0;
+      const confidence = data[i];
+      // Sigmoid-like smoothing around threshold
+      const val = confidence > 0 ? Math.min(255, Math.max(0, (confidence) * 255)) : 0;
       const idx = i * 4;
       tempImageData.data[idx] = val;
       tempImageData.data[idx+1] = val;
@@ -163,18 +251,33 @@ class SAM2Service {
     }
     tempCtx.putImageData(tempImageData, 0, 0);
     
+    // First upscale to intermediate resolution with high-quality smoothing
+    const intermediateCanvas = document.createElement('canvas');
+    intermediateCanvas.width = intermediateWidth;
+    intermediateCanvas.height = intermediateHeight;
+    const intermediateCtx = intermediateCanvas.getContext('2d')!;
+    intermediateCtx.imageSmoothingEnabled = true;
+    intermediateCtx.imageSmoothingQuality = 'high';
+    intermediateCtx.drawImage(tempCanvas, 0, 0, intermediateWidth, intermediateHeight);
+    
+    // Then scale to final resolution
     const destCanvas = document.createElement('canvas');
     destCanvas.width = dw;
     destCanvas.height = dh;
     const destCtx = destCanvas.getContext('2d')!;
-    destCtx.imageSmoothingEnabled = false; 
-    destCtx.drawImage(tempCanvas, 0, 0, dw, dh);
+    destCtx.imageSmoothingEnabled = true;
+    destCtx.imageSmoothingQuality = 'high';
+    destCtx.drawImage(intermediateCanvas, 0, 0, dw, dh);
     
     const finalData = destCtx.getImageData(0, 0, dw, dh).data;
     const result = new Uint8Array(dw * dh);
+    
+    // Apply threshold with some hysteresis for cleaner edges
     for (let i = 0; i < dw * dh; i++) {
-      result[i] = finalData[i * 4];
+      const val = finalData[i * 4];
+      result[i] = val > 127 ? 255 : 0; // Clean binary threshold after smoothing
     }
+    
     return result;
   }
 }
