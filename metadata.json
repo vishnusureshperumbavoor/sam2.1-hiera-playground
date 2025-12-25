@@ -1,0 +1,7 @@
+{
+  "name": "SAM 2.1 Interactive Segmenter",
+  "description": "High-performance interactive segmentation using Meta/Ultralytics SAM 2.1 hierarchical models in the browser.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
